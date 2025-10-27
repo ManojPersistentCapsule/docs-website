@@ -1917,7 +1917,10 @@ FROM SyntheticCheck SELECT rate(uniqueCount(id), 1 minute) AS 'job rate per minu
 This query calculates the average per-minute growth of the `jobManagerHeavyweightJobs` queue on a time series chart. A line above zero indicates the queue is growing, while a line below zero means it's shrinking.
 
 ```nrql
-FROM SyntheticsPrivateLocationStatus SELECT derivative(jobManagerHeavyweightJobs, 1 minute) AS 'queue growth rate per minute' WHERE name = 'YOUR_PRIVATE_LOCATION' TIMESERIES SINCE 1 day ago
+FROM SyntheticsPrivateLocationStatus
+SELECT derivative(jobManagerHeavyweightJobs, 1 minute) AS 'queue growth rate per minute'
+WHERE name = 'YOUR_PRIVATE_LOCATION'
+TIMESERIES SINCE 1 day ago
 ```
 
 <Callout variant="tip">
@@ -1928,16 +1931,20 @@ FROM SyntheticsPrivateLocationStatus SELECT derivative(jobManagerHeavyweightJobs
 This query finds the unique count of heavyweight monitors.
 
 ```nrql
-
-  FROM SyntheticCheck SELECT uniqueCount(monitorId) AS 'monitor count' WHERE location = 'YOUR_PRIVATE_LOCATION' AND type != 'SIMPLE' SINCE 1 day ago
-
+FROM SyntheticCheck
+SELECT uniqueCount(monitorId) AS 'monitor count'
+WHERE location = 'YOUR_PRIVATE_LOCATION' AND type != 'SIMPLE'
+SINCE 1 day ago
 ```
 
 **4. Find average job duration in minutes ($D_{avg,m}$):**
 This query finds the average execution duration of completed non-ping jobs and converts the result from milliseconds to minutes. `executionDuration` represents the time the job took to execute on the host.
 
 ```nrql
-FROM SyntheticCheck SELECT average(executionDuration)/60e3 AS 'avg job duration (m)' WHERE location = 'YOUR_PRIVATE_LOCATION' AND type != 'SIMPLE' SINCE 1 day ago
+FROM SyntheticCheck
+SELECT average(executionDuration)/60e3 AS 'avg job duration (m)'
+WHERE location = 'YOUR_PRIVATE_LOCATION' AND type != 'SIMPLE'
+SINCE 1 day ago
 ```
 
 **5. Find average heavyweight monitor period ($P_{avg,m}$):**
@@ -1972,7 +1979,7 @@ Your goal is to configure enough parallelism to handle your job load without exc
 
 First, determine your private location's average job execution duration and job rate. Use `executionDuration` as it most accurately reflects the pod's active runtime.
 
-```
+```nrql
 -- Get average job execution duration (in seconds)
 FROM SyntheticCheck
 SELECT average(executionDuration / 1e3) AS 'D_avg_s'
@@ -1980,7 +1987,7 @@ WHERE type != 'SIMPLE' AND location = 'YOUR_PRIVATE_LOCATION'
 FACET typeLabel SINCE 1 hour ago
 ```
 
-```
+```nrql
 -- Get jobs per 5 minutes
 FROM SyntheticCheck
 SELECT rate(uniqueCount(id), 5 minutes) AS 'N_m'
@@ -2018,7 +2025,7 @@ A key consideration is that a **single SJM instance has a maximum throughput of 
 
 First, get your average job execution duration in **minutes**:
 
-```
+```nrql
 -- Get average job execution duration (in minutes)
 FROM SyntheticCheck
 SELECT average(executionDuration / 60e3) AS 'D_avg_m'
@@ -2059,7 +2066,7 @@ Compare your **required** parallelism ($P_{req}$) from Step 1 to the **maximum**
 * **Action:**
 
   1. You must **scale out by deploying multiple, separate SJM Helm releases**.
-  2. See the **"Scaling Out with Multiple SJM Deployments"** section below for the correct procedure.
+  2. See the **[Scaling Out with Multiple SJM Deployments](#scaling-out-with-multiple-sjm-deployments)** section below for the correct procedure.
   3. **Do not** increase the `replicaCount` in your Helm chart.
 
 ##### Step 4: Monitor Your Queue
@@ -2068,7 +2075,7 @@ After applying your changes, you must verify that your job queue is stable and n
 
 Run this query to check the queue's growth rate:
 
-```
+```nrql
 -- Check for queue growth (a positive value means the queue is growing)
 SELECT derivative(checksPending, 1 minute) AS 'Queue Growth Rate (per min)'
 FROM SyntheticsPrivateLocationStatus
@@ -2083,45 +2090,45 @@ If the "Queue Growth Rate" is consistently positive, you need to install more SJ
 The `parallelism` setting directly affects how many synthetics jobs per minute can be run. Too small a value and the queue may grow. Too large a value and nodes may become resource constrained.
 
 <table>
-<thead>
-<tr>
-<th style={{ width: "300px" }}>
-Example
-</th>
-  <th>
-    Description
-  </th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-`parallelism=1`
-    `completions=1`
-  </td>
-  <td>
-    The runtime will execute 1 synthetics job per minute. After 1 job completes, the `CronJob` configuration will start a new job at the next minute. <DNT>**Throughput will be extremely limited with this configuration.**</DNT>
-  </td>
-</tr>
-<tr>
-  <td>
-    `parallelism=1`
-    `completions=6`
-  </td>
-  <td>
-    The runtime will execute 1 synthetics job at a time. After the job completes, a new job will start immediately. After 6 jobs complete, the `CronJob` configuration will start a new Kubernetes Job. <DNT>**Throughput will be limited.**</DNT> A single long-running synthetics job will block the processing of any other synthetics jobs of this type.
-  </td>
-</tr>
-<tr>
-  <td>
-    `parallelism=3`
-    `completions=24`
-  </td>
-  <td>
-    The runtime will execute 3 synthetics jobs at once. After any of these jobs complete, a new job will start immediately. After 24 jobs complete, the `CronJob` configuration will start a new Kubernetes Job. <DNT>**Throughput is much better with this or similar configurations.**</DNT>
-  </td>
-</tr>
-</tbody>
+  <thead>
+    <tr>
+      <th style={{ width: "300px" }}>
+        Example
+      </th>
+      <th>
+        Description
+      </th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>
+        `parallelism=1`
+        `completions=1`
+      </td>
+      <td>
+        The runtime will execute 1 synthetics job per minute. After 1 job completes, the `CronJob` configuration will start a new job at the next minute. <DNT>**Throughput will be extremely limited with this configuration.**</DNT>
+      </td>
+    </tr>
+    <tr>
+      <td>
+        `parallelism=1`
+        `completions=6`
+      </td>
+      <td>
+        The runtime will execute 1 synthetics job at a time. After the job completes, a new job will start immediately. After 6 jobs complete, the `CronJob` configuration will start a new Kubernetes Job. <DNT>**Throughput will be limited.**</DNT> A single long-running synthetics job will block the processing of any other synthetics jobs of this type.
+      </td>
+    </tr>
+    <tr>
+      <td>
+        `parallelism=3`
+        `completions=24`
+      </td>
+      <td>
+        The runtime will execute 3 synthetics jobs at once. After any of these jobs complete, a new job will start immediately. After 24 jobs complete, the `CronJob` configuration will start a new Kubernetes Job. <DNT>**Throughput is much better with this or similar configurations.**</DNT>
+      </td>
+    </tr>
+  </tbody>
 </table>
 
 If your `parallelism` setting is working well (keeping the queue at zero), setting a higher `completions` value (e.g., 6-10x `parallelism`) can improve efficiency by:
@@ -2131,7 +2138,7 @@ If your `parallelism` setting is working well (keeping the queue at zero), setti
 
 It's important to note that the `completions` value should not be too large or the CronJob will experience warning events like the following:
 
-```
+```sh
 8m40s     Warning   TooManyMissedTimes   cronjob/synthetics-node-browser-runtime   too many missed start times: 101. Set or decrease .spec.startingDeadlineSeconds or check clock skew
 ```
 
@@ -2166,7 +2173,7 @@ Setting the `fullnameOverride` is highly recommended to create shorter, more man
 
 For example, to install two SJMs named `sjm-alpha` and `sjm-beta` into the `newrelic` namespace (both using the same `values.yaml` with your fixed parallelism):
 
-```
+```sh
 # Install the first SJM deployment
 helm upgrade --install sjm-alpha newrelic/synthetics-job-manager \
   -n newrelic \
@@ -2175,7 +2182,7 @@ helm upgrade --install sjm-alpha newrelic/synthetics-job-manager \
   --create-namespace
 ```
 
-```
+```sh
 # Install the second SJM deployment to add capacity
 helm upgrade --install sjm-beta newrelic/synthetics-job-manager \
   -n newrelic \
